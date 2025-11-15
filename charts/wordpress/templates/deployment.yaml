@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+        - name: wordpress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 9000
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "{{ .Values.mysql.host }}:{{ .Values.mysql.port }}"
+            - name: WORDPRESS_DB_USER
+              value: "{{ .Values.mysql.user }}"
+            - name: WORDPRESS_DB_PASSWORD
+              value: "{{ .Values.mysql.password }}"
+            - name: WORDPRESS_DB_NAME
+              value: "{{ .Values.mysql.database }}"
+          volumeMounts:
+            - name: wp-content
+              mountPath: /var/www/html/wp-content
+      volumes:
+        - name: wp-content
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}

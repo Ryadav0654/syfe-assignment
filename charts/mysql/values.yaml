@@ -1,0 +1,8 @@
+image:
+  repository: mysql
+  tag: latest
+
+persistence:
+  existingClaim: mysql-data-pvc
+
+resources: {}

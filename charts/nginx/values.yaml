@@ -1,0 +1,36 @@
+image:
+  repository: nginx-openresty
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: LoadBalancer
+  port: 80
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+
+config:
+  nginxConf: |-
+    # Will be overwritten by charts/nginx/files/nginx.conf on packaging
+    # Keep a minimal fallback here
+    events { worker_connections 1024; }
+    http {
+      server {
+        listen 80;
+        location / {
+          return 200 'ok';
+        }
+      }
+    }
+
+metrics:
+  path: /metrics
+  port: 80
+
+serviceMonitor:
+  enabled: true
+  scrapeInterval: 15s

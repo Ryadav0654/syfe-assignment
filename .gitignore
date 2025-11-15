@@ -1,0 +1,86 @@
+# ============================
+# OS / Editor Files
+# ============================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# VSCode
+.vscode/
+.idea/
+
+# ============================
+# Docker
+# ============================
+# Ignore built images tarballs
+*.tar
+
+# Ignore Docker build context temp files
+docker/*/nginx.conf~
+docker/*/*.log
+docker/*/*~
+
+# ============================
+# Helm
+# ============================
+# Ignore chart build directories
+charts/*/charts/
+charts/*/tmpcharts/
+charts/*/Chart.lock
+
+# Ignore packaged Helm charts
+*.tgz
+
+# Values files that may contain real secrets
+values-prod.yaml
+values-dev.yaml
+secrets.yaml
+
+# ============================
+# Kubernetes
+# ============================
+# Ignore local kubeconfig backups
+.kube/
+*.kubeconfig
+*~kubebackup*
+
+# Avoid committing generated YAML files
+k8s/generated/
+k8s/output/
+k8s/.cache/
+
+# ============================
+# Logs
+# ============================
+*.log
+logs/
+log/
+
+
+# ============================
+# Env / Secrets
+# ============================
+.env
+.env.*
+*.secret
+*.secrets
+secret-*
+credentials/*
+creds.*
+
+# Never commit kube secrets created by kubectl
+secret.yaml
+secrets/
+*.enc
+
+
+# ============================
+# Misc
+# ============================
+tmp/
+temp/
+build/
+dist/

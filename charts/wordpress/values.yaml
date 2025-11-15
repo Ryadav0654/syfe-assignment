@@ -1,0 +1,15 @@
+image:
+  repository: wordpress
+  tag: latest
+
+replicaCount: 2
+
+persistence:
+  existingClaim: wp-content-pvc
+
+mysql:
+  host: mysql
+  port: 3306
+  user: wpuser
+  password: wppassword
+  database: wordpress
