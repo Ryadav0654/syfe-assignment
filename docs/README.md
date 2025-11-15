@@ -1,82 +1,264 @@
-# WordPress on Kubernetes — Deploy Guide
 
-Prereqs:
-- Kubernetes cluster (kubectl configured)
-- Helm 3
-- Docker daemon and access to push images
-- NFS server for RWX volumes (or other RWX CSI driver)
 
-## 1. Build & push Docker images
-### from repo root
+# 🚀 WordPress + OpenResty (NGINX + Lua) + MySQL on Kubernetes
 
-```
-docker build -t nginx-openresty:latest -f docker/nginx/Dockerfile .
-docker push nginx-openresty:latest
+**Helm + Docker + Prometheus/Grafana Monitoring**
 
-docker build -t wordpress:latest -f docker/wordpress/Dockerfile .
-docker push wordpress:latest
+This project deploys a full WordPress stack on Kubernetes using custom Docker images and Helm charts.
+It includes:
 
-docker build -t mysql:latest -f docker/mysql/Dockerfile .
-docker push mysql:latest
-```
+* **OpenResty / NGINX** with:
 
-## 2. Create storage
-```
-kubectl apply -f k8s/storage/nfs-pv.yaml
-kubectl apply -f k8s/storage/wp-content-pvc.yaml
-kubectl apply -f k8s/storage/mysql-pvc.yaml
-```
+  * Lua integration
+  * `lua-resty-prometheus` metrics
+  * `/metrics` endpoint for Prometheus
+  * Proxy pass → WordPress backend
+* **WordPress** running behind the NGINX reverse proxy
+* **MySQL** as the WordPress database
+* **Prometheus + Grafana** for metrics & dashboards
+* **Persistent storage (PV/PVC)**
+* **Automated deploy script (`deploy.sh`)**
+* **Automated cleanup (`destroy.sh`)**
 
-## 3. Install monitoring stack (kube-prometheus-stack recommended)
+---
 
-> helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+## 📦 Components
 
-```
-helm repo update
-helm install prometheus prometheus-community/kube-prometheus-stack
-```
+### 1. Docker Images
 
-## 4. Deploy helm charts
-```
-helm install mysql ./charts/mysql
-helm install wordpress ./charts/wordpress
-helm install nginx ./charts/nginx
-```
-## 5. Configure ServiceMonitor & PrometheusRule
-```
-kubectl apply -f k8s/monitoring/servicemonitor-nginx.yaml
-kubectl apply -f k8s/monitoring/prometheusrule-wordpress.yaml
-```
-## 6. Access Grafana
-### port-forward if using cluster internal Grafana
-``` 
-kubectl port-forward svc/prometheus-grafana 3000:80 -n default 
-```
-> open http://localhost:3000 (default admin/admin; check helm chart for credentials)
+Custom Dockerfiles in `docker/` directory:
 
-## 7. Cleanup
-```
-helm delete nginx
-helm delete wordpress
-helm delete mysql
-helm delete prometheus
-kubectl delete -f k8s/storage/*.yaml
+| Component       | Path                | Description                                                                                                    |
+| --------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| NGINX/OpenResty | `docker/nginx/`     | Compiles OpenResty with Lua, installs `lua-resty-prometheus`, loads custom `nginx.conf` and Lua metrics logic. |
+| WordPress       | `docker/wordpress/` | Custom WordPress image.                                                                                        |
+| MySQL           | `docker/mysql/`     | Optional initialization scripts + local dev–friendly MySQL image.                                              |
+
+Builds are automatically handled by `deploy.sh`.
+
+---
+
+### 2. Helm Charts
+
+Each service has its own Helm chart:
 
 ```
-
-```SCSS
-[Internet] -> [LoadBalancer / Ingress] -> [nginx (OpenResty + Lua)]
-     nginx proxies -> [wordpress (php-fpm) pods]  (mount: wp-content pvc RWX)
-     wordpress connects -> [mysql StatefulSet / Pod] (mysql-data pvc RWO)
-Monitoring:
-  - Prometheus scrapes:
-      * kube-state-metrics, node-exporter
-      * nginx /metrics (lua exporter)
-      * php-fpm /metrics (php-fpm exporter)
-      * mysqld_exporter
-  - Grafana dashboards visualize metrics
-Alerts:
-  - High Pod CPU
-  - Nginx 5xx spike
-  - MySQL high latency / disk usage
+charts/
+ ├── nginx/
+ ├── wordpress/
+ └── mysql/
 ```
+
+Each chart includes:
+
+* Deployment
+* Service
+* ConfigMap
+* Secret (for MySQL credentials)
+* PV/PVC references
+* NGINX proxy logic (nginx chart)
+* Lua metrics integration
+
+You can install any component individually or as a full stack.
+
+---
+
+### 3. Monitoring
+
+Monitoring is deployed via:
+
+```
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack
+```
+
+Includes:
+
+* Prometheus
+* Grafana
+* Node Exporter
+* Kube State Metrics
+
+ServiceMonitors for NGINX metrics are in:
+
+```
+k8s/monitoring/
+```
+
+---
+
+### 4. Storage
+
+Storage manifests live under:
+
+```
+k8s/storage/
+```
+
+Includes:
+
+* PV for MySQL data
+* PV for WordPress wp-content
+* PVCs bound to deployments
+
+Kubernetes will dynamically bind the volumes.
+
+---
+
+## 🚀 Deployment
+
+### 1. Make the script executable
+
+```bash
+chmod +x deploy.sh
+```
+
+### 2. Deploy the entire stack
+
+```bash
+./deploy.sh <tag> <namespace>
+```
+
+Example:
+
+```bash
+./deploy.sh v1 wordpress
+```
+
+If you omit args:
+
+* `tag = latest`
+* `namespace = wordpress`
+
+This script:
+
+1. Builds Docker images
+2. Applies PV/PVC storage
+3. Installs Prometheus + Grafana
+4. Deploys MySQL
+5. Deploys WordPress
+6. Deploys NGINX OpenResty
+7. Applies monitoring ServiceMonitors
+
+---
+
+## 🗑️ Cleanup
+
+Run:
+
+```bash
+./destroy.sh <namespace>
+```
+
+Example:
+
+```bash
+./destroy.sh wordpress
+```
+
+This removes:
+
+* All Helm releases (nginx, wordpress, mysql, prometheus)
+* All PV/PVC for that namespace
+* Namespace itself
+
+---
+
+## 🌐 Access the Applications
+
+### WordPress
+
+Get service info:
+
+```bash
+kubectl get svc wordpress -n <namespace>
+```
+
+### NGINX Reverse Proxy
+
+```bash
+kubectl get svc nginx -n <namespace>
+```
+
+### Grafana
+
+Forward Grafana to localhost:
+
+```bash
+kubectl port-forward svc/prometheus-grafana 3000:80 -n <namespace>
+```
+
+Open:
+
+**[http://localhost:3000](http://localhost:3000)**
+
+Default credentials:
+
+```
+username: admin
+password: prom-operator
+```
+
+---
+
+## 🔍 Verifying the Deployment
+
+Check pods:
+
+```bash
+kubectl get pods -n <namespace>
+```
+
+Check logs:
+
+```bash
+kubectl logs deployment/nginx -n <namespace>
+kubectl logs deployment/wordpress -n <namespace>
+kubectl logs deployment/mysql -n <namespace>
+```
+
+Check PV/PVC:
+
+```bash
+kubectl get pv,pvc -n <namespace>
+```
+
+Check metrics:
+
+```bash
+kubectl exec -it deployment/nginx -n <namespace> -- curl localhost/metrics
+```
+
+---
+
+## 🛠️ Local Development (Docker Desktop)
+
+If using Docker Desktop Kubernetes:
+
+* Kubernetes must be enabled
+* All images are built locally so **no registry** is required
+* Helm installs services into your chosen namespace
+
+---
+
+## 📁 Repository Structure
+
+```
+.
+├── charts/
+│   ├── mysql/
+│   ├── nginx/
+│   └── wordpress/
+├── docker/
+│   ├── mysql/
+│   ├── nginx/
+│   └── wordpress/
+├── k8s/
+│   ├── monitoring/
+│   └── storage/
+├── deploy.sh
+├── destroy.sh
+├── README.md
+└── .gitignore
+```
+
+

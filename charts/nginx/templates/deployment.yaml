@@ -1,18 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "common.name" . }}
-  labels:
-{{ include "common.labels" . | indent 4 }}
+  name: nginx-openresty
+  labels: nginx-openresty
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "common.name" . }}
+      app: nginx-openresty
   template:
     metadata:
       labels:
-        app: {{ include "common.name" . }}
+        app: nginx-openresty
     spec:
       containers:
         - name: nginx
@@ -26,4 +25,4 @@ spec:
       volumes:
         - name: nginx-conf
           configMap:
-            name: {{ include "common.name" . }}-config
+            name: nginx-openresty-config
